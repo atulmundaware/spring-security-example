@@ -1,8 +1,12 @@
 package com.atulm.security.config;
 
+import com.atulm.security.auth.UserAuthService;
+import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -19,14 +23,13 @@ import static com.atulm.security.config.UserRoles.*;
 @Configuration
 @EnableWebSecurity
 @EnableGlobalMethodSecurity(prePostEnabled = true) //if we want to use @PreAuthorize on method instead of mentioning in config->antMatchers
+@AllArgsConstructor
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     private static final String ADMIN_STUDENT_ENDPOINT = "/admin/student/**";
     private final PasswordEncoder passwordEncoder;
+    private final UserAuthService userAuthService;
 
-    public SecurityConfig(PasswordEncoder passwordEncoder) {
-        this.passwordEncoder = passwordEncoder;
-    }
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
@@ -37,6 +40,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .authorizeRequests()
                 .antMatchers("/welcome").permitAll()
                 .antMatchers("/student/**").hasRole(STUDENT.name())
+//                .antMatchers("/login**").permitAll()
 //                .antMatchers(HttpMethod.DELETE, ADMIN_STUDENT_ENDPOINT).hasAuthority(COURSE_WRIGHT.getPermission())
 //                .antMatchers(HttpMethod.POST, ADMIN_STUDENT_ENDPOINT).hasAuthority(COURSE_WRIGHT.getPermission())
 //                .antMatchers(HttpMethod.PUT, ADMIN_STUDENT_ENDPOINT).hasAuthority(COURSE_WRIGHT.getPermission())
@@ -48,11 +52,15 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     @Override
+    protected void configure(AuthenticationManagerBuilder auth) {
+        auth.authenticationProvider(daoAuthenticationProvider());
+    }
+
     @Bean
-    protected UserDetailsService userDetailsService() {
-        UserDetails userDetails = User.builder().username("user").password(passwordEncoder.encode("user")).authorities(STUDENT.getGrantedAuthorities()).build();
-        UserDetails admin = User.builder().username("admin").password(passwordEncoder.encode("admin")).authorities(ADMIN.getGrantedAuthorities()).build();
-        UserDetails tom = User.builder().username("tom").password(passwordEncoder.encode("tom")).authorities(ADMIN_TRAINEE.getGrantedAuthorities()).build();
-        return new InMemoryUserDetailsManager(userDetails, admin, tom);
+    public DaoAuthenticationProvider daoAuthenticationProvider() {
+        DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
+        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder);
+        daoAuthenticationProvider.setUserDetailsService(userAuthService);
+        return daoAuthenticationProvider;
     }
 }
